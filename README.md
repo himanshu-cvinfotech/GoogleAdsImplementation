@@ -241,7 +241,6 @@ public class GoogleNativeHandlerAd {
     public GoogleNativeHandlerAd(Context context) {
         if (Utility.isTestLab()) return;
          builder = new AdLoader.Builder(context, "ca-app-pub-3940256099942544/2247696110");//test
-//         builder = new AdLoader.Builder(context, "ca-app-pub-9865115953083848/2415915164");
 
         if (nativeAd != null) {
             nativeAd.destroy();
@@ -256,10 +255,7 @@ public class GoogleNativeHandlerAd {
             }
 
         });
-        RequestConfiguration configuration =
-                new RequestConfiguration.Builder().setTestDeviceIds(Utility.TEST_DEVICE_LIST).build();
-        MobileAds.setRequestConfiguration(configuration);
-        MobileAds.initialize(context);
+       
         AdLoader adLoader = builder.build();
         adLoader.loadAd(new AdRequest.Builder().build());
 
