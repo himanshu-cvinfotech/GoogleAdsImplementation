@@ -229,6 +229,182 @@ public class GoogleBannerAdHandler {
 
 }
 ```
+## Implementaion of Native Ads in exit dialog :-
+
+### Create a seperate class for handling Native ads names as GoogleNativeHandlerAd
+
+```java
+public class GoogleNativeHandlerAd {
+    private UnifiedNativeAd nativeAd;
+    public AdLoader.Builder builder;
+    
+    public GoogleNativeHandlerAd(Context context) {
+        if (Utility.isTestLab()) return;
+         builder = new AdLoader.Builder(context, "ca-app-pub-3940256099942544/2247696110");//test
+//         builder = new AdLoader.Builder(context, "ca-app-pub-9865115953083848/2415915164");
+
+        if (nativeAd != null) {
+            nativeAd.destroy();
+        }
+
+        builder.forUnifiedNativeAd(new UnifiedNativeAd.OnUnifiedNativeAdLoadedListener() {
+
+            // OnUnifiedNativeAdLoadedListener implementation.
+            @Override
+            public void onUnifiedNativeAdLoaded(UnifiedNativeAd unifiedNativeAd) {
+             nativeAd = unifiedNativeAd;
+            }
+
+        });
+        RequestConfiguration configuration =
+                new RequestConfiguration.Builder().setTestDeviceIds(Utility.TEST_DEVICE_LIST).build();
+        MobileAds.setRequestConfiguration(configuration);
+        MobileAds.initialize(context);
+        AdLoader adLoader = builder.build();
+        adLoader.loadAd(new AdRequest.Builder().build());
+
+    }
+
+    public UnifiedNativeAd getNativeAd(){
+        return nativeAd;
+    }
+}
+```
+
+### create a dialog to show native ad
+
+```java
+public class GoogleExitDialog {
+    public static UnifiedNativeAd nativeAd;
+
+    public static void showNativeAd(final Activity activity, GoogleNativeHandlerAd nativeHandlerAd) {
+
+        try {
+            final Dialog main_dialog;
+            LayoutInflater dialogLayout = LayoutInflater.from(activity);
+            final View DialogView = dialogLayout.inflate(R.layout.activity_ads, null);
+            main_dialog = new Dialog(activity, R.style.CustomAlertDialog);
+            main_dialog.setContentView(DialogView);
+            // You must call destroy on old ads when you are done with them,
+            // otherwise you will have a memory leak.
+            nativeAd = nativeHandlerAd.getNativeAd();
+            FrameLayout frameLayout =
+                    DialogView.findViewById(R.id.fl_adplaceholder);
+            frameLayout.setVisibility(View.VISIBLE);
+            UnifiedNativeAdView adView = (UnifiedNativeAdView) LayoutInflater.from(activity)
+                    .inflate(R.layout.ad_unified, null);
+            populateUnifiedNativeAdView(nativeAd, adView);
+            frameLayout.addView(adView);
+
+            Button exit = DialogView.findViewById(R.id.exit_button);
+            exit.setBackgroundColor(Color.parseColor("#FFB300"));
+            exit.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (main_dialog.isShowing())
+                        main_dialog.dismiss();
+                    activity.finish();
+                }
+            });
+
+            Button noButton = DialogView.findViewById(R.id.no_button);
+            noButton.setBackgroundColor(Color.parseColor("#FFB300"));
+            noButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    EventBus.getDefault().postSticky(new EventMsg.RefreshAdGoogle());
+                    if (main_dialog.isShowing())
+                        main_dialog.dismiss();
+                }
+            });
+
+            main_dialog.setCancelable(false);
+            main_dialog.setCanceledOnTouchOutside(false);
+            main_dialog.show();
+        } catch (Exception e) {
+            activity.finish();
+            FirebaseCrashlytics.getInstance().log(e.getMessage());
+        }
+
+
+    }
+
+    public static void populateUnifiedNativeAdView(UnifiedNativeAd nativeAd, UnifiedNativeAdView adView) {
+        // Set the media view. Media content will be automatically populated in the media view once
+        // adView.setNativeAd() is called.
+        MediaView mediaView = adView.findViewById(R.id.ad_media);
+        adView.setMediaView(mediaView);
+
+        // --------- populate all the views
+    }
+
+}
+```
+
+// layout file for exit dialog named as activity_ads
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <FrameLayout
+        android:id="@+id/fl_adplaceholder"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFB300"
+        android:visibility="gone"
+        android:padding="5dp"/>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp">
+        <TextView
+            android:id="@+id/exit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:layout_margin="10dp"
+            android:gravity="center"
+            android:textColor="@color/black"
+            android:text="@string/are_you_sure_you_want_quit_this_app"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/exit"
+            android:weightSum="2"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/no_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight=".75"
+                android:padding="10dp"
+                android:layout_marginRight="3dp"
+                android:gravity="center"
+                android:textColor="@color/white"
+                android:text="@string/no"/>
+            <Button
+                android:id="@+id/exit_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight=".75"
+                android:padding="10dp"
+                android:layout_marginLeft="3dp"
+                android:gravity="center"
+                android:textColor="@color/white"
+                android:text="@string/yes_quit_now"/>
+        </LinearLayout>
+
+
+    </RelativeLayout>
+</LinearLayout>
+```
 
 
 ### and in any activity like MainActivity or launcher activity we use this classes like this:
@@ -237,6 +413,7 @@ public class GoogleBannerAdHandler {
 public class MainActivity extends AppCompatActivity {
   public GoogleInterstitialAdHandler intertitialAdHandler;
   public GoogleBannerAdHandler bannerAdHandler;
+  public GoogleNativeHandlerAd googleNativeHandlerAd;
   
   protected void onCreate(Bundle savedInstanceState) {
   
@@ -265,6 +442,28 @@ public class MainActivity extends AppCompatActivity {
      super.onDestroy();
   }
     
+  // show GoogleExitDialog on backPressed  
+  public void onBackPressed() {
+    showNativeAd();
+  }
+  
+  public void showNativeAd() {
+        if (Utility.isPremium()) {
+            exit();
+        } else {
+            if (googleNativeHandlerAd != null && googleNativeHandlerAd.getNativeAd() != null) {
+                GoogleExitDialog.showNativeAd(this, googleNativeHandlerAd);
+            } else {
+                exit();
+            }
+
+        }
+    }
+  
+  private void exit() {
+   finish(); 
+  }
+  
   // listener for navigation drawer items and show ad in every item click
   private class NavigationDrawerItemsListener implements AdapterView.OnItemClickListener {
 
